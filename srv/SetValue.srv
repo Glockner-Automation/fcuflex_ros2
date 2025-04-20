@@ -1,0 +1,5 @@
+string param     # Parameter path (e.g. "/afd/commandForce")
+string value     # Value to set
+---
+bool success     # Whether the request was successful
+string message   # Information/error message

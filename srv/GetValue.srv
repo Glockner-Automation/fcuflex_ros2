@@ -1,0 +1,5 @@
+string param     # Parameter path (e.g. "/afd/actualForce")
+---
+bool success     # Whether the request was successful
+string message   # Information/error message
+string value     # Parameter value as string
