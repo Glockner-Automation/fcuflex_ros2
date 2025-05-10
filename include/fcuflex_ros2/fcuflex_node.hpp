@@ -1,6 +1,8 @@
-#ifndef FCUFLEX_NODE_HPP
-#define FCUFLEX_NODE_HPP
+#ifndef FCUFLEX_NODE_HPP_
+#define FCUFLEX_NODE_HPP_
 
+#include <memory>
+#include <string>
 #include <rclcpp/rclcpp.hpp>
 #include <std_srvs/srv/trigger.hpp>
 #include "fcuflex_ros2/msg/afd_status.hpp"
@@ -18,53 +20,80 @@ public:
   ~FCUFLEXNode();
 
 private:
-  // ROS parameters
+  // FCUFLEX client
+  std::shared_ptr<FCUFLEXClient> client_;
+
+  // Publisher for status messages
+  rclcpp::Publisher<msg::AFDStatus>::SharedPtr status_pub_;
+
+  // Timer for periodic updates
+  rclcpp::TimerBase::SharedPtr timer_;
+
+  // Configuration parameters for connection
   std::string fcuflex_host_;
   int fcuflex_port_;
-  double update_rate_;
-  
-  // FCUFLEX client
-  std::unique_ptr<FCUFLEXClient> client_;
-  
-  // Timers
-  rclcpp::TimerBase::SharedPtr update_timer_;
-  
-  // Publishers
-  rclcpp::Publisher<msg::AFDStatus>::SharedPtr status_pub_;
-  
-  // Service servers
+
+  // Trigger services
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr connect_srv_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr disconnect_srv_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr weigh_payload_srv_;
+
+  // Services for setting commands
   rclcpp::Service<srv::SetValue>::SharedPtr set_force_srv_;
   rclcpp::Service<srv::SetValue>::SharedPtr set_position_srv_;
   rclcpp::Service<srv::SetValue>::SharedPtr set_control_mode_srv_;
+
+  // Services for generic parameter get/set
   rclcpp::Service<srv::GetValue>::SharedPtr get_param_srv_;
   rclcpp::Service<srv::SetValue>::SharedPtr set_param_srv_;
-  
-  // Callbacks
+
+  // Callback methods
   void updateCallback();
-  void connectCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
-                      std::shared_ptr<std_srvs::srv::Trigger::Response> res);
-  void disconnectCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
-                         std::shared_ptr<std_srvs::srv::Trigger::Response> res);
-  void weighPayloadCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
-                           std::shared_ptr<std_srvs::srv::Trigger::Response> res);
-  void setForceCallback(const std::shared_ptr<srv::SetValue::Request> req,
-                       std::shared_ptr<srv::SetValue::Response> res);
-  void setPositionCallback(const std::shared_ptr<srv::SetValue::Request> req,
-                          std::shared_ptr<srv::SetValue::Response> res);
-  void setControlModeCallback(const std::shared_ptr<srv::SetValue::Request> req,
-                             std::shared_ptr<srv::SetValue::Response> res);
-  void getParamCallback(const std::shared_ptr<srv::GetValue::Request> req,
-                       std::shared_ptr<srv::GetValue::Response> res);
-  void setParamCallback(const std::shared_ptr<srv::SetValue::Request> req,
-                       std::shared_ptr<srv::SetValue::Response> res);
-  
-  // Helpers
-  bool updateAFDStatus(msg::AFDStatus& status);
+  bool updateAFDStatus(msg::AFDStatus & status);
+
+  void connectCallback(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+
+  void disconnectCallback(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+
+  void weighPayloadCallback(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+
+  void setForceCallback(
+    const std::shared_ptr<srv::SetValue::Request> request,
+    std::shared_ptr<srv::SetValue::Response> response);
+
+  void setPositionCallback(
+    const std::shared_ptr<srv::SetValue::Request> request,
+    std::shared_ptr<srv::SetValue::Response> response);
+
+  void setControlModeCallback(
+    const std::shared_ptr<srv::SetValue::Request> request,
+    std::shared_ptr<srv::SetValue::Response> response);
+
+  void getParamCallback(
+    const std::shared_ptr<srv::GetValue::Request> request,
+    std::shared_ptr<srv::GetValue::Response> response);
+
+  void setParamCallback(
+    const std::shared_ptr<srv::SetValue::Request> request,
+    std::shared_ptr<srv::SetValue::Response> response);
+
+  // Node configuration parameters
+  std::string topic_name_;
+  size_t max_points_;
+  double update_rate_;
+  double force_min_;
+  double force_max_;
+  double position_min_;
+  double position_max_;
 };
 
 } // namespace fcuflex_ros2
 
-#endif // FCUFLEX_NODE_HPP
+#endif // FCUFLEX_NODE_HPP_
+

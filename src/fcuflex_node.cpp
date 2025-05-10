@@ -4,6 +4,10 @@
 #include <string>
 #include <memory>
 #include <stdexcept>
+#include <chrono>
+
+typedef fcuflex_ros2::srv::GetValue GetValue;
+typedef fcuflex_ros2::srv::SetValue SetValue;
 
 namespace fcuflex_ros2
 {
@@ -13,7 +17,7 @@ FCUFLEXNode::FCUFLEXNode()
 {
   // Declare and get parameters
   this->declare_parameter("fcuflex_host", "192.168.0.12");
-  this->declare_parameter("fcuflex_port", 80);
+  this->declare_parameter("fcuflex_port", 23);
   this->declare_parameter("update_rate", 10.0);
   
   fcuflex_host_ = this->get_parameter("fcuflex_host").as_string();
@@ -72,9 +76,13 @@ FCUFLEXNode::FCUFLEXNode()
       std::placeholders::_1, std::placeholders::_2));
   
   // Create timer for periodic updates
-  update_timer_ = this->create_wall_timer(
+  /* update_timer_ = this->create_wall_timer(
     std::chrono::duration<double>(1.0 / update_rate_),
-    std::bind(&FCUFLEXNode::updateCallback, this));
+    std::bind(&FCUFLEXNode::updateCallback, this)); */
+
+  // Timer to poll status
+  timer_ = create_wall_timer(std::chrono::milliseconds(100), std::bind(&FCUFLEXNode::updateCallback, this));
+
   
   RCLCPP_INFO(this->get_logger(), "FCUFLEX node initialized");
   
@@ -292,106 +300,59 @@ void FCUFLEXNode::setControlModeCallback(
 }
 
 void FCUFLEXNode::getParamCallback(
-    const std::shared_ptr<fcuflex_ros2::srv::GetValue::Request> request,
-    std::shared_ptr<fcuflex_ros2::srv::GetValue::Response> response)
-  {
-    if (!client_->isConnected()) {
-      response->success = false;
-      response->message = "Not connected to FCUFLEX";
-      return;
-    }
-    
-    try {
-      auto result = client_->getParameter(request->param);
-      
-      // Changed from INFO to DEBUG to reduce console output
-      RCLCPP_DEBUG(this->get_logger(), "Parameter response: %s", result.dump().c_str());
-      
-      if (result.contains("status") && result["status"] == "success" && 
-          result.contains("data")) {
-        response->success = true;
-        
-        // Extract the value, which could be of different types
-        auto& data = result["data"];
-        auto key = request->param;
-        if (data.contains(key)) {
-          auto& value = data[key];
-          if (value.is_string()) {
-            response->value = value.get<std::string>();
-          } else if (value.is_number_integer()) {
-            response->value = std::to_string(value.get<int>());
-          } else if (value.is_number_float()) {
-            response->value = std::to_string(value.get<double>());
-          } else if (value.is_boolean()) {
-            response->value = value.get<bool>() ? "true" : "false";
-          } else {
-            response->value = value.dump();
-          }
-          response->message = "Parameter retrieved successfully";
-        } else if (data.is_string()) {
-          // For simple string responses (Telnet interface might return)
-          response->value = data.get<std::string>();
-          response->message = "Parameter retrieved successfully";
-        } else {
-          response->success = false;
-          response->message = "Parameter not found in response";
-        }
-      } else {
-        response->success = false;
-        response->message = "Error retrieving parameter";
-        if (result.contains("data")) {
-          if (result["data"].is_string()) {
-            response->message += ": " + result["data"].get<std::string>();
-          } else {
-            response->message += ": " + result["data"].dump();
-          }
-        }
-      }
-    } catch (const std::exception& e) {
-      response->success = false;
-      response->message = std::string("Error getting parameter: ") + e.what();
-    }
+  const std::shared_ptr<GetValue::Request> request,
+  std::shared_ptr<GetValue::Response> response)
+{
+  if (!client_->isConnected()) {
+    response->success = false;
+    response->message = "Not connected";
+    return;
   }
+  try {
+    auto result = client_->getParameter(request->param);
+    if (result.contains("status") && result["status"] == "success" && result.contains("data")) {
+      auto &data = result["data"];
+      if (data.contains(request->param)) {
+        response->value = data[request->param].dump();
+      } else if (data.is_string()) {
+        response->value = data.get<std::string>();
+      }
+      response->success = true;
+      response->message = "Retrieved";
+    } else {
+      response->success = false;
+      response->message = "Error retrieving param";
+    }
+  } catch (const std::exception &e) {
+    response->success = false;
+    response->message = std::string("Exception: ") + e.what();
+  }
+}
 
 void FCUFLEXNode::setParamCallback(
-    const std::shared_ptr<fcuflex_ros2::srv::SetValue::Request> request,
-    std::shared_ptr<fcuflex_ros2::srv::SetValue::Response> response)
+  const std::shared_ptr<SetValue::Request> request,
+  std::shared_ptr<SetValue::Response> response)
 {
-    if (!client_->isConnected()) {
-        response->success = false;
-        response->message = "Not connected to FCUFLEX";
-        return;
-    }
-
+  if (!client_->isConnected()) {
+    response->success = false;
+    response->message = "Not connected";
+    return;
+  }
+  try {
+    // attempt to set as number or string
+    bool ok = false;
     try {
-        // Try to determine the type of the value
-        bool success = false;
-        
-        // Try as integer
-        try {
-        int int_value = std::stoi(request->value);
-        success = client_->setParameter(request->param, int_value);
-        } catch (const std::invalid_argument&) {
-        // Not an integer, try as double
-        try {
-            double double_value = std::stod(request->value);
-            success = client_->setParameter(request->param, double_value);
-        } catch (const std::invalid_argument&) {
-            // Not a number, treat as string
-            success = client_->setParameter(request->param, request->value);
-        }
-        }
-        
-        response->success = success;
-        if (success) {
-        response->message = "Successfully set parameter " + request->param;
-        } else {
-        response->message = "Failed to set parameter " + request->param;
-        }
-    } catch (const std::exception& e) {
-        response->success = false;
-        response->message = std::string("Error setting parameter: ") + e.what();
+      double d = std::stod(request->value);
+      ok = client_->setParameter(request->param, d);
+    } catch (...) {
+      ok = client_->setParameter(request->param, request->value);
     }
+    response->success = ok;
+    response->message = ok ? "Set OK" : "Set failed";
+  } catch (const std::exception &e) {
+    response->success = false;
+    response->message = std::string("Exception: ") + e.what();
+  }
 }
 
 bool FCUFLEXNode::updateAFDStatus(fcuflex_ros2::msg::AFDStatus& status)

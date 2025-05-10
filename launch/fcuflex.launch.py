@@ -13,7 +13,7 @@ def generate_launch_description():
     
     fcuflex_port_arg = DeclareLaunchArgument(
         'fcuflex_port',
-        default_value='24',
+        default_value='23',
         description='TCP port of the FCUFLEX controller'
     )
     
