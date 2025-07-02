@@ -19,7 +19,7 @@
   <depend>std_msgs</depend>
   <depend>std_srvs</depend>
   <depend>boost</depend>
-  <depend>nlohmann-json</depend>
+  <depend>nlohmann_json_schema_validator_vendor</depend>
 
   <!-- Execution-only dependencies -->
   <exec_depend>rosidl_default_runtime</exec_depend>
