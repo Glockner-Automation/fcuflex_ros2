@@ -10,6 +10,9 @@ Ensure the python package "dearpygui" is installed you wish to use the python GU
 
 Ensure to first launch this package and then launch the GUI if you wish to use the python GUI.
 
+### GUI:
+[fcuflex_plotter_ros2](https://github.com/wglockner/fcuflex_plotter_ros2.git)
+
 ## KNOWN ISSUES:
 * The connection to the device can be off and on at times.
 * Unit conversions are incomplete.
